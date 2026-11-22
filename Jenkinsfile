@@ -18,7 +18,13 @@ pipeline {
                     export MINIKUBE_HOME=/home/ubuntu
                     export KUBECONFIG=/var/lib/jenkins/.kube/config
                     
+                    # Self-Healing: Check if Minikube is running; start it if offline
+                    minikube status || minikube start --driver=docker --ports=30300:30300,5000:5000 --force
+                    
+                    # Load container image into Minikube engine
                     minikube image load webapp:latest
+                    
+                    # Apply Manifests & perform rolling restart
                     kubectl apply -f k8s-deployment.yaml
                     kubectl rollout restart deployment/webapp-deployment
                     kubectl rollout status deployment/webapp-deployment --timeout=60s
@@ -31,6 +37,7 @@ pipeline {
             withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                 sh '''
                     COMMIT_HASH=$(git rev-parse HEAD)
+                    
                     curl -s -X POST \
                       -H "Authorization: Bearer $GITHUB_TOKEN" \
                       -H "Accept: application/vnd.github.v3+json" \
